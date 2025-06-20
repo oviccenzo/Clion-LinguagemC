@@ -1,0 +1,3 @@
+/Users/rlresende/cadastro_de_cliente/cmake-build-debug/CMakeFiles/cadastro_de_cliente.dir
+/Users/rlresende/cadastro_de_cliente/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/rlresende/cadastro_de_cliente/cmake-build-debug/CMakeFiles/rebuild_cache.dir

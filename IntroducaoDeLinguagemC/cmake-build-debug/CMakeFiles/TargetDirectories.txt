@@ -1,0 +1,3 @@
+/Users/rlresende/IntroducaoDeLinguagemC/cmake-build-debug/CMakeFiles/IntroducaoDeLinguagemC.dir
+/Users/rlresende/IntroducaoDeLinguagemC/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/rlresende/IntroducaoDeLinguagemC/cmake-build-debug/CMakeFiles/rebuild_cache.dir

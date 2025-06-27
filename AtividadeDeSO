@@ -1,0 +1,576 @@
+Pular para o conteúdo
+Você disse:
+
+Ir para o conteúdo principal
+AVA IFTM
+
+    Página inicial
+    Painel
+    Meus cursos
+    Tutoriais
+
+2025-06-18 - TRABALHO - Sistema de transferência bancária
+
+    Campus Ituiutaba
+    Cursos De Graduação
+    Bacharelado Em Ciência Da Computação
+    1° Semestre/2025
+    5º Período
+    [BCC-2025-1] Sistemas Operacionais
+    Módulo V
+    2025-06-18 - TRABALHO - Sistema de transferência bancária
+
+Informação
+Remover marcação
+Texto informativo
+Detecção de Deadlock em Transferência Bancária
+ 
+Objetivo:
+O objetivo deste exercício é simular um cenário de transferência de fundos entre contas bancárias utilizando threads, e propositalmente introduzir condições para que um DEADLOCK ocorra. Você deverá identificar o deadlock, entender suas causas e, como um desafio adicional, pensar em possíveis soluções.
+ 
+Cenário:
+Temos um sistema bancário simples com duas contas. Duas threads tentarão transferir dinheiro simultaneamente entre essas contas, mas em direções opostas.
+ 
+Recursos Compartilhados (Recursos a serem protegidos):
+
+    Conta 1: Um valor inteiro que representa o saldo da primeira conta.
+    Conta 2: Um valor inteiro que representa o saldo da segunda conta.
+
+ 
+Mecanismos de Sincronização:
+ 
+Para proteger o acesso às contas e evitar condições de corrida (race conditions), usaremos mutexes (mutually exclusive locks). Cada conta terá seu próprio mutex.
+ 
+Condições para Deadlock (Intencional):
+ 
+Para criar um deadlock, vamos garantir as quatro condições abaixo ocorram:
+
+    Exclusão Mútua: Cada conta (recurso) é acessada por apenas uma thread por vez (garantido pelos mutexes).
+    Posse e Espera (Hold and Wait): Uma thread que possui um mutex de uma conta espera pelo mutex da outra conta.
+    Não Preempção: Os mutexes não podem ser tomados à força de uma thread; eles precisam ser liberados pela thread que os adquiriu.
+    Espera Circular: As threads formarão um ciclo de espera:
+        Thread 1: Adquire o mutex da Conta 1 e tenta adquirir o mutex da Conta 2.
+        Thread 2: Adquire o mutex da Conta 2 e tenta adquirir o mutex da Conta 1.
+
+ 
+Informação
+Remover marcação
+Texto informativo
+
+O código-fonte abaixo contém as instruções para o programa make.
+
+Salve o conteúdo em um arquivo chamado Makefile e use-o para executar as atividades do ciclo de desenvolvimento.
+
+# definição dos parametros de configuração para o make
+       # nome comum para o arquivo-fonte e seu executavel
+FILE = sistema_bancario
+
+SRC = $(FILE).c
+EXEC = $(FILE).exe
+
+# Regra principal: compilar
+all: compilar
+
+# Regra para compilar o codigo-fonte
+compilar: limpar
+	@gcc $(SRC) -o $(EXEC) -Wall -pthread
+
+exec:
+	@./$(EXEC) $(ARG)    # passando parametro como uma variavel do make
+
+# Regra para executar o programa
+run: compilar
+	@./$(EXEC) $(ARG)    # passando parametro como uma variavel do make
+
+runconstante: compilar
+	@./$(EXEC) 10            # passando parametro como uma constante do make
+
+# Regra para limpar arquivos gerados
+limpar:
+	@rm -f $(EXEC) *.exe
+
+Informação
+Remover marcação
+Texto informativo
+
+O código-fonte abaixo contém a implementação proposta do sistema de transferência bancária simples entre as duas contas.
+
+Salve o conteúdo em um arquivo com o nome sistema_bancario.c na mesma pasta do arquivo Makefile.
+
+Execute o programa várias vezes. Você deve notar que ele frequentemente "trava" (não imprime a mensagem "Main: Ambas as threads finalizaram...") ou exibe uma saída que indica que as threads estão presas.
+
+Estude esse código-fonte.
+
+Finalmente, responda às questões seguintes!
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h> // Para usleep()
+
+// Estrutura para uma conta bancária
+typedef struct {
+    int saldo;
+    pthread_mutex_t mutex; // Mutex para proteger o saldo desta conta
+} Conta;
+
+// Declaração das contas globais
+Conta conta1;
+Conta conta2;
+
+// Função da Thread 1: Tentar transferir da Conta 1 para a Conta 2
+void *transferir_1_para_2(void *arg) {
+
+    printf("Thread 1: Tentando adquirir mutex da Conta 1...\n");
+    
+    pthread_mutex_lock(&conta1.mutex); // Adquire o mutex da Conta 1 (ordem de aquisição: Conta 1 -> Conta 2)
+    printf("Thread 1: Mutex da Conta 1 adquirido. Tentando adquirir mutex da Conta 2...\n");
+
+    // Introduzir um pequeno atraso para aumentar a chance de deadlock
+    // Isso simula um trabalho sendo feito enquanto o primeiro recurso está em posse.
+    usleep(100000); // 100ms
+
+    pthread_mutex_lock(&conta2.mutex); // Tenta adquirir o mutex da Conta 2 (aqui pode ocorrer o deadlock)
+    printf("Thread 1: Mutex da Conta 2 adquirido.\n");
+
+    // Lógica da transferência
+    int valor_transferencia = 100;
+    if (conta1.saldo >= valor_transferencia) {
+        conta1.saldo -= valor_transferencia;
+        conta2.saldo += valor_transferencia;
+        printf("Thread 1: Transferencia de %d da Conta 1 para a Conta 2 realizada. Saldo C1: %d, Saldo C2: %d\n", valor_transferencia, conta1.saldo, conta2.saldo);
+    } else {
+        printf("Thread 1: Saldo insuficiente na Conta 1 para transferencia. Saldo C1: %d\n", conta1.saldo);
+    }
+
+    printf("Thread 1: Liberando mutex da Conta 2...\n");
+    pthread_mutex_unlock(&conta2.mutex);
+
+    printf("Thread 1: Liberando mutex da Conta 1...\n");
+    pthread_mutex_unlock(&conta1.mutex);
+
+    pthread_exit(NULL); // Finaliza a thread
+}
+
+// Função da Thread 2: Tentar transferir da Conta 2 para a Conta 1
+void *transferir_2_para_1(void *arg) {
+
+    printf("Thread 2: Tentando adquirir mutex da Conta 2...\n");
+
+    pthread_mutex_lock(&conta2.mutex); // Adquire o mutex da Conta 2 (ordem de aquisição: Conta 2 -> Conta 1)
+    printf("Thread 2: Mutex da Conta 2 adquirido. Tentando adquirir mutex da Conta 1...\n");
+
+    // Introduzir um pequeno atraso para aumentar a chance de deadlock
+    usleep(100000); // 100ms
+
+    pthread_mutex_lock(&conta1.mutex); // Tenta adquirir o mutex da Conta 1 (aqui pode ocorrer o deadlock)
+    printf("Thread 2: Mutex da Conta 1 adquirido.\n");
+
+    // Lógica da transferência
+    int valor_transferencia = 150;
+    if (conta2.saldo >= valor_transferencia) {
+        conta2.saldo -= valor_transferencia;
+        conta1.saldo += valor_transferencia;
+        printf("Thread 2: Transferencia de %d da Conta 2 para a Conta 1 realizada. Saldo C1: %d, Saldo C2: %d\n", valor_transferencia, conta1.saldo, conta2.saldo);
+    } else {
+        printf("Thread 2: Saldo insuficiente na Conta 2 para transferencia. Saldo C2: %d\n", conta2.saldo);
+    }
+
+    printf("Thread 2: Liberando mutex da Conta 1...\n");
+    pthread_mutex_unlock(&conta1.mutex);
+
+    printf("Thread 2: Liberando mutex da Conta 2...\n");
+    pthread_mutex_unlock(&conta2.mutex);
+
+    pthread_exit(NULL); // Finaliza a thread
+}
+
+int main() {
+    
+    // Inicialização dos saldos das contas
+    conta1.saldo = 500;
+    conta2.saldo = 700;
+
+    // Inicialização dos mutexes (sempre antes de usar)
+    pthread_mutex_init(&conta1.mutex, NULL);
+    pthread_mutex_init(&conta2.mutex, NULL);
+
+    printf("Saldos iniciais: Conta 1 = %d, Conta 2 = %d\n", conta1.saldo, conta2.saldo);
+
+    pthread_t thread1, thread2; // Variáveis para armazenar IDs das threads
+
+    // Criação das threads
+    printf("\nCriando Thread 1 (Transfere C1->C2) e Thread 2 (Transfere C2->C1)...\n");
+    pthread_create(&thread1, NULL, transferir_1_para_2, NULL);
+    pthread_create(&thread2, NULL, transferir_2_para_1, NULL);
+
+    // Espera pelas threads
+    // ATENÇÃO: Em caso de deadlock, este ponto não será alcançado,
+    // pois as threads ficarão presas aguardando os mutexes.
+    printf("\nMain: Aguardando threads finalizarem...\n");
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+    printf("Main: Ambas as threads finalizaram (se não houver deadlock).\n");
+
+    printf("\nSaldos finais (se alcançados): Conta 1 = %d, Conta 2 = %d\n", conta1.saldo, conta2.saldo);
+
+    // Destruição dos mutexes (libera os recursos alocados para eles)
+    pthread_mutex_destroy(&conta1.mutex);
+    pthread_mutex_destroy(&conta2.mutex);
+
+    return 0; // Retorna 0 para indicar execução bem-sucedida
+}
+
+Previous activity
+Seguir para...
+Next activity
+Logo EAD
+
+Precisa de ajuda?
+
+Clique aqui e faça uma solicitação de atendimento.
+
+Conteúdo acessível em Libras usando o VLibras Widget com opções dos Avatares Ícaro, Hosana ou Guga. Conteúdo acessível em Libras usando o VLibras Widget com opções dos Avatares Ícaro, Hosana ou Guga.
+O ChatGPT disse:
+
+Esse exercício parece estar projetado para estudar como um deadlock pode ocorrer em um sistema de transferência bancária simples, utilizando threads e mutexes para proteção de dados compartilhados (o saldo das contas).
+
+A ideia de introduzir intencionalmente um deadlock envolve criar uma situação onde duas threads tentam acessar recursos em ordens conflitantes, resultando em um ciclo de espera que não pode ser resolvido.
+Detalhando o problema
+
+    Deadlock no código:
+
+        Thread 1 tenta bloquear o mutex da Conta 1 e depois o da Conta 2.
+
+        Thread 2 tenta bloquear o mutex da Conta 2 e depois o da Conta 1.
+
+        Se ambas as threads forem criadas simultaneamente, o deadlock ocorre porque:
+
+            A Thread 1 já adquiriu o mutex da Conta 1 e está esperando pelo mutex da Conta 2.
+
+            A Thread 2 já adquiriu o mutex da Conta 2 e está esperando pelo mutex da Conta 1.
+
+            Nenhuma thread pode continuar, pois ambas estão esperando que a outra libere um mutex, criando um ciclo de espera.
+
+    Solução para o Deadlock:
+
+        Prevenção: Alterar a ordem de aquisição dos mutexes. Ambas as threads poderiam adquirir os mutexes na mesma ordem (por exemplo, sempre adquirir o mutex da Conta 1 antes da Conta 2), evitando o ciclo de espera.
+
+        Detecção: O sistema pode detectar deadlocks por meio de uma técnica que verifique se há ciclos de espera entre threads. Esse tipo de solução pode ser mais complexa, mas é possível implementá-la com um algoritmo que monitore as aquisições de mutex.
+
+        Evitação: Outro método seria garantir que a thread que já possui um mutex não tente adquirir outro mutex se outra thread já estiver bloqueada, evitando assim um ciclo de espera.
+
+Questões a serem analisadas:
+
+    Deadlock: O que causou o deadlock? Isso ocorreu porque as threads bloquearam mutexes em ordens diferentes, criando um ciclo de dependência circular.
+
+    Como resolver: Como mencionado acima, a solução mais simples seria garantir que ambas as threads adquiram os mutexes na mesma ordem, prevenindo o ciclo de espera.
+
+Sugestão de Alteração no Código:
+
+Se você quiser testar uma solução para o deadlock, pode alterar a ordem de aquisição dos mutexes nas threads. Um exemplo seria:
+
+    Thread 1 sempre adquire o mutex da Conta 1 primeiro, depois o mutex da Conta 2.
+
+    Thread 2 também adquire o mutex da Conta 1 primeiro, depois o mutex da Conta 2.
+
+Isso pode ser feito assim:
+
+// Thread 1: Adquirir mutex da Conta 1 e depois da Conta 2
+pthread_mutex_lock(&conta1.mutex);
+pthread_mutex_lock(&conta2.mutex);
+
+// Thread 2: Adquirir mutex da Conta 1 e depois da Conta 2
+pthread_mutex_lock(&conta1.mutex);
+pthread_mutex_lock(&conta2.mutex);
+
+Isso elimina a possibilidade de conflito, já que ambas as threads tentam bloquear os mutexes na mesma ordem.
+
+Gostou dessa abordagem para resolver o problema? Ou você quer explorar outra forma de tratar o deadlock?
+Você disse:
+Questão 1
+Ainda não respondida
+Vale 2,50 ponto(s).
+Remover marcação
+Texto da questão
+
+Explique:
+
+Por que o programa trava? Identifique as quatro condições de Coffman para deadlock (Exclusão Mútua, Posse e Espera, Não Preempção, Espera Circular) e explique como cada uma é satisfeita no código.
+Texto de resposta Questão 1
+Editor de texto rico
+O ChatGPT disse:
+
+Por que o programa trava?
+
+O programa trava devido à condição de deadlock que ocorre quando as duas threads estão tentando acessar dois recursos (os mutexes das contas bancárias) em ordens conflitantes. A primeira thread adquire o mutex da Conta 1 e tenta adquirir o mutex da Conta 2, enquanto a segunda thread adquire o mutex da Conta 2 e tenta adquirir o mutex da Conta 1. Isso cria um ciclo de espera entre as threads, fazendo com que ambas fiquem presas, esperando indefinidamente pelos mutexes que a outra thread possui, e o programa nunca chega a finalizar a execução.
+As quatro condições de Coffman para deadlock:
+
+    Exclusão Mútua:
+
+        Definição: Pelo menos um recurso deve estar em modo exclusivo, ou seja, apenas uma thread pode usar o recurso por vez.
+
+        Como ocorre no código: As contas bancárias são recursos compartilhados pelas threads. Cada conta tem um mutex, e as threads bloqueiam esses mutexes para acessar as contas. Apenas uma thread pode acessar cada conta por vez, garantindo a exclusão mútua.
+
+    Posse e Espera (Hold and Wait):
+
+        Definição: Uma thread mantém pelo menos um recurso enquanto espera por outros recursos que estão sendo mantidos por outras threads.
+
+        Como ocorre no código: A Thread 1 adquire o mutex da Conta 1 e depois tenta adquirir o mutex da Conta 2, enquanto a Thread 2 adquire o mutex da Conta 2 e tenta adquirir o mutex da Conta 1. Ambas as threads possuem um mutex e estão esperando pelo mutex da outra thread, criando uma condição de posse e espera.
+
+    Não Preempção:
+
+        Definição: Os recursos não podem ser retirados à força de uma thread. Uma thread só pode liberar um recurso voluntariamente.
+
+        Como ocorre no código: O mutex de uma conta só pode ser liberado pela thread que o bloqueou. Ou seja, uma thread não pode forçar outra thread a liberar o mutex de uma conta. Isso impede que as threads se livrem da situação de espera, pois elas não podem ser preemptadas para liberar os recursos que estão retendo.
+
+    Espera Circular (Circular Wait):
+
+        Definição: Existe um ciclo de threads, onde cada thread está esperando por um recurso que está sendo mantido pela próxima thread no ciclo.
+
+        Como ocorre no código: A Thread 1 está esperando pelo mutex da Conta 2, enquanto a Thread 2 está esperando pelo mutex da Conta 1. Isso forma um ciclo de espera:
+
+            Thread 1 -> Mutex da Conta 2 (aguarda a Thread 2 liberar).
+
+            Thread 2 -> Mutex da Conta 1 (aguarda a Thread 1 liberar).
+
+Esse ciclo de espera entre as threads, em que ambas estão esperando por recursos que a outra thread possui, cria um deadlock e faz o programa "travar", ou seja, ele não consegue prosseguir com a execução.
+Resumo:
+
+O programa trava devido a um deadlock causado pelas quatro condições de Coffman. A exclusão mútua é garantida pelos mutexes, a posse e espera ocorre porque as threads mantêm um mutex enquanto esperam pelo outro, a não preempção impede que uma thread libere o mutex à força, e a espera circular cria o ciclo entre as threads. Essas condições juntas impedem que o programa continue executando normalmente.
+Você disse:
+Descreva a sequência de eventos que leva ao deadlock.
+O ChatGPT disse:
+
+A sequência de eventos que leva ao deadlock no programa pode ser descrita como segue:
+1. Inicialização das Threads
+
+    O programa começa com a criação das duas threads:
+
+        Thread 1 tenta transferir dinheiro da Conta 1 para a Conta 2.
+
+        Thread 2 tenta transferir dinheiro da Conta 2 para a Conta 1.
+
+    Ambas as threads são executadas simultaneamente, o que gera concorrência na tentativa de acessar os mutexes das contas.
+
+2. Thread 1 Adquire Mutex da Conta 1
+
+    A Thread 1 começa sua execução e tenta adquirir o mutex da Conta 1 (a primeira conta que ela precisa acessar para realizar a transferência).
+
+    O mutex da Conta 1 está disponível, então a Thread 1 o adquire com sucesso.
+
+    A Thread 1 agora possui o mutex da Conta 1 e tenta adquirir o mutex da Conta 2 para realizar a transferência.
+
+3. Thread 2 Adquire Mutex da Conta 2
+
+    Simultaneamente, a Thread 2 inicia sua execução e tenta adquirir o mutex da Conta 2 (a primeira conta que ela precisa acessar para realizar sua transferência).
+
+    O mutex da Conta 2 está disponível, então a Thread 2 o adquire com sucesso.
+
+    A Thread 2 agora possui o mutex da Conta 2 e tenta adquirir o mutex da Conta 1 para realizar a transferência.
+
+4. Acontece a Espera Circular
+
+    Agora, temos a seguinte situação:
+
+        Thread 1 possui o mutex da Conta 1 e está esperando para adquirir o mutex da Conta 2.
+
+        Thread 2 possui o mutex da Conta 2 e está esperando para adquirir o mutex da Conta 1.
+
+    Ambas as threads estão em uma situação de espera circular:
+
+        Thread 1 não pode continuar porque ela precisa do mutex da Conta 2, mas a Thread 2 o possui.
+
+        Thread 2 não pode continuar porque ela precisa do mutex da Conta 1, mas a Thread 1 o possui.
+
+5. Nenhuma Thread Pode Proseguir
+
+    Ambas as threads estão agora presas em um loop de espera. Nenhuma delas pode avançar porque ambas estão esperando pela liberação de mutexes que a outra possui.
+
+    Nenhuma thread pode ser preemptada ou forçada a liberar o recurso, pois o sistema segue o comportamento da não preempção, ou seja, uma thread só libera o mutex quando termina sua execução.
+
+6. Deadlock
+
+    Como ambas as threads estão bloqueadas esperando pelos mutexes de maneira cíclica, elas nunca poderão terminar suas execuções.
+
+    O deadlock ocorre e o programa trava porque as threads estão em uma condição em que ambas estão esperando recursos que nunca serão liberados.
+
+Resumo da Sequência de Deadlock:
+
+    Thread 1 adquire o mutex da Conta 1 e tenta adquirir o mutex da Conta 2.
+
+    Thread 2 adquire o mutex da Conta 2 e tenta adquirir o mutex da Conta 1.
+
+    Ambas as threads entram em uma espera circular:
+
+        Thread 1 espera pela Conta 2 (mutex).
+
+        Thread 2 espera pela Conta 1 (mutex).
+
+    Nenhuma thread pode prosseguir porque ambas estão esperando pelos mutexes que a outra thread possui.
+
+    O deadlock ocorre, e o programa trava.
+
+Essa sequência ilustra o clássico ciclo de espera de um deadlock, onde as threads ficam presas em um ciclo de dependências mútuas.
+Você disse:
+Proposta de Solução (Prevenção de Deadlock):
+
+Pense em como você pode modificar o código para evitar o deadlock.
+
+Modifique o código C para implementar sua solução.
+Texto de resposta Questão 3
+Editor de texto rico
+O ChatGPT disse:
+Proposta de Solução (Prevenção de Deadlock)
+
+Para prevenir o deadlock, uma solução simples é garantir que as threads adquiram os mutexes na mesma ordem. Se ambas as threads sempre adquirirem os mutexes na mesma ordem, a situação de espera circular será evitada, e o deadlock não ocorrerá.
+Como funciona a solução:
+
+    Em vez de permitir que cada thread adquira os mutexes em ordens diferentes (Thread 1 adquire primeiro a Conta 1, depois a Conta 2, enquanto a Thread 2 adquire primeiro a Conta 2, depois a Conta 1), vamos garantir que ambas as threads adquiram os mutexes na mesma ordem:
+
+        Ordem: Conta 1 → Conta 2.
+
+    Isso impede que duas threads adquiram mutexes de forma conflitante e fiquem esperando umas pelas outras, eliminando a espera circular.
+
+Alteração no Código C:
+
+Para evitar o deadlock, vamos garantir que tanto a Thread 1 quanto a Thread 2 adquiram os mutexes na mesma ordem (sempre adquirindo primeiro o mutex da Conta 1 e depois o da Conta 2).
+Código alterado:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h> // Para usleep()
+
+// Estrutura para uma conta bancária
+typedef struct {
+    int saldo;
+    pthread_mutex_t mutex; // Mutex para proteger o saldo desta conta
+} Conta;
+
+// Declaração das contas globais
+Conta conta1;
+Conta conta2;
+
+// Função da Thread 1: Tentar transferir da Conta 1 para a Conta 2
+void *transferir_1_para_2(void *arg) {
+
+    printf("Thread 1: Tentando adquirir mutex da Conta 1...\n");
+    
+    // Adquirir mutexes na mesma ordem: Conta 1 -> Conta 2
+    pthread_mutex_lock(&conta1.mutex); 
+    printf("Thread 1: Mutex da Conta 1 adquirido. Tentando adquirir mutex da Conta 2...\n");
+
+    usleep(100000); // 100ms
+
+    pthread_mutex_lock(&conta2.mutex); 
+    printf("Thread 1: Mutex da Conta 2 adquirido.\n");
+
+    // Lógica da transferência
+    int valor_transferencia = 100;
+    if (conta1.saldo >= valor_transferencia) {
+        conta1.saldo -= valor_transferencia;
+        conta2.saldo += valor_transferencia;
+        printf("Thread 1: Transferencia de %d da Conta 1 para a Conta 2 realizada. Saldo C1: %d, Saldo C2: %d\n", valor_transferencia, conta1.saldo, conta2.saldo);
+    } else {
+        printf("Thread 1: Saldo insuficiente na Conta 1 para transferencia. Saldo C1: %d\n", conta1.saldo);
+    }
+
+    printf("Thread 1: Liberando mutex da Conta 2...\n");
+    pthread_mutex_unlock(&conta2.mutex);
+
+    printf("Thread 1: Liberando mutex da Conta 1...\n");
+    pthread_mutex_unlock(&conta1.mutex);
+
+    pthread_exit(NULL); // Finaliza a thread
+}
+
+// Função da Thread 2: Tentar transferir da Conta 2 para a Conta 1
+void *transferir_2_para_1(void *arg) {
+
+    printf("Thread 2: Tentando adquirir mutex da Conta 1...\n");
+
+    // Adquirir mutexes na mesma ordem: Conta 1 -> Conta 2
+    pthread_mutex_lock(&conta1.mutex); 
+    printf("Thread 2: Mutex da Conta 1 adquirido. Tentando adquirir mutex da Conta 2...\n");
+
+    usleep(100000); // 100ms
+
+    pthread_mutex_lock(&conta2.mutex); 
+    printf("Thread 2: Mutex da Conta 2 adquirido.\n");
+
+    // Lógica da transferência
+    int valor_transferencia = 150;
+    if (conta2.saldo >= valor_transferencia) {
+        conta2.saldo -= valor_transferencia;
+        conta1.saldo += valor_transferencia;
+        printf("Thread 2: Transferencia de %d da Conta 2 para a Conta 1 realizada. Saldo C1: %d, Saldo C2: %d\n", valor_transferencia, conta1.saldo, conta2.saldo);
+    } else {
+        printf("Thread 2: Saldo insuficiente na Conta 2 para transferencia. Saldo C2: %d\n", conta2.saldo);
+    }
+
+    printf("Thread 2: Liberando mutex da Conta 2...\n");
+    pthread_mutex_unlock(&conta2.mutex);
+
+    printf("Thread 2: Liberando mutex da Conta 1...\n");
+    pthread_mutex_unlock(&conta1.mutex);
+
+    pthread_exit(NULL); // Finaliza a thread
+}
+
+int main() {
+    
+    // Inicialização dos saldos das contas
+    conta1.saldo = 500;
+    conta2.saldo = 700;
+
+    // Inicialização dos mutexes (sempre antes de usar)
+    pthread_mutex_init(&conta1.mutex, NULL);
+    pthread_mutex_init(&conta2.mutex, NULL);
+
+    printf("Saldos iniciais: Conta 1 = %d, Conta 2 = %d\n", conta1.saldo, conta2.saldo);
+
+    pthread_t thread1, thread2; // Variáveis para armazenar IDs das threads
+
+    // Criação das threads
+    printf("\nCriando Thread 1 (Transfere C1->C2) e Thread 2 (Transfere C2->C1)...\n");
+    pthread_create(&thread1, NULL, transferir_1_para_2, NULL);
+    pthread_create(&thread2, NULL, transferir_2_para_1, NULL);
+
+    // Espera pelas threads
+    printf("\nMain: Aguardando threads finalizarem...\n");
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+    printf("Main: Ambas as threads finalizaram (sem deadlock).\n");
+
+    printf("\nSaldos finais (se alcançados): Conta 1 = %d, Conta 2 = %d\n", conta1.saldo, conta2.saldo);
+
+    // Destruição dos mutexes (libera os recursos alocados para eles)
+    pthread_mutex_destroy(&conta1.mutex);
+    pthread_mutex_destroy(&conta2.mutex);
+
+    return 0; // Retorna 0 para indicar execução bem-sucedida
+}
+
+Explicação da Modificação:
+
+    Ordem consistente de aquisição dos mutexes:
+
+        Agora ambas as threads (transferir_1_para_2 e transferir_2_para_1) sempre adquirem os mutexes na mesma ordem: Conta 1 primeiro, depois Conta 2. Isso garante que o ciclo de espera circular não ocorra.
+
+    Evita a condição de deadlock:
+
+        Com essa modificação, as threads nunca vão ficar esperando uma pela outra de forma circular, pois ambas tentam bloquear os mutexes na mesma ordem.
+
+    Execução correta do programa:
+
+        O programa agora pode ser executado sem travar, pois, com a ordem de aquisição dos mutexes unificada, ele elimina o risco de deadlock.
+
+Resultados Esperados:
+
+Com a alteração no código, o deadlock será evitado, e o programa deverá ser capaz de realizar as transferências de valores entre as contas com sucesso, sem travamentos, sempre que as threads forem executadas.
+
+Você gostaria de testar o código para ver como ele se comporta agora?
+
+
+O ChatGPT pode cometer erros. Considere verificar informações importantes.
